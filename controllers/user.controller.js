@@ -61,11 +61,12 @@ exports.Login=async(req,res)=>{
        if(username){
           email=username
        }
-
+        let role='user'
       // Check if the user already exists
       const existingUser = await user.findOne({
         where: {
-         email
+         email:email,
+         role:role
         }
       });
       if (existingUser) {
@@ -116,3 +117,6 @@ exports.Login=async(req,res)=>{
 
 }
 
+exports.createOrder=(req,res)=>{
+
+}
