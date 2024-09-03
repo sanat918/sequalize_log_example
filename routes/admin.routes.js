@@ -8,7 +8,7 @@ let{Signup,Login,addCategory,addProduct}=require('../controllers/admin.controlle
 router.post('/signup',Signup)
 router.post('/login',Login)
 
-// router.post('/addCategory',addCategory,verifyJWTAdmin)
+router.post('/addCategory',verifyJWTAdmin,addCategory)
 // router.post('/addProduct',addProduct)
 
 

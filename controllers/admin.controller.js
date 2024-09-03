@@ -1,4 +1,5 @@
-let {user}=require('../models/index')
+const { sequelize } = require('../connectionToDB');
+let {user,category}=require('../models/index')
 let{asyncHandler}=require('../utils/asyncHandler')
 let {ApiResponse}=require('../utils/ApiResponse')
 let {ApiError}=require('../utils/ApiError')
@@ -117,6 +118,31 @@ exports.addProduct=(req,res)=>{
 
 }
 
-exports.addCategory=(req,res)=>{
+exports.addCategory=async(req,res)=>{
+    const transaction = await sequelize.transaction(); // Start a transaction
+   try {
+     let {name}=req.body
+     if(!name){
+        await transaction.rollback(); // Rollback if validation fails
+         return res.status(400).json({message:"Please provide all required fields"})
+     }
+ 
+     let Name= name.toLowerCase()
+       // Check if the Category already exists
+ const existingCategory = await category.findOne({ where: { name:Name } ,
+    transaction});
+ if (existingCategory) {
+    await transaction.rollback(); 
+     return res.status(400).json({ message: "This Category is already present." });
+ }
+      
+     let data=await category.create({name:Name},{transaction})
+     await transaction.commit(); 
+     
+     return res.status(201).json({message:"Category created Successfully !",data:data,success:1})
+   } catch (error) {
+    await transaction.rollback();
+      console.error("Error occured while creating category",error.message)
+   }
 
 }
