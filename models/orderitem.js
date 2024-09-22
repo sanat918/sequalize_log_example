@@ -1,56 +1,54 @@
-
-
-module.exports=function(sequelize,Sequelize){
-const orderitem = sequelize.define(
-  'orderitem',
-  {
-    // Model attributes are defined here
-   id:{
-     type:Sequelize.INTEGER,
-     autoIncrement:true,
-     primaryKey:true
-   },
-    orderId: {
-      type: Sequelize.INTEGER,
-      allowNull: false,
+module.exports = function(sequelize, Sequelize) {
+  const orderitem = sequelize.define(
+    'orderitem',
+    {
+      // Model attributes are defined here
+      id: {
+        type: Sequelize.INTEGER,
+        autoIncrement: true,
+        primaryKey: true
+      },
+      orderId: {
+        type: Sequelize.INTEGER,
+        allowNull: false,
+      },
+      productId: {
+        type: Sequelize.INTEGER,
+        allowNull: false, // Changed require to allowNull for clarity
+      },
+      quantity: {
+        type: Sequelize.INTEGER,
+        allowNull: false, // Changed require to allowNull for clarity
+      },
+      price: {
+        type: Sequelize.DECIMAL(10, 2), // Use DECIMAL for price for precision
+        allowNull: false, // Changed require to allowNull for clarity
+      }
     },
-    productId:{
-       type:Sequelize.INTEGER,
-        require:true,
-    },
-    quantity:{
-        type:Sequelize.INTEGER,
-        require:true
-    },
-    price:{
-        type:Sequelize.INTEGER,
-        require:true
+    {
+      timestamps: true, // Adds createdAt and updatedAt fields
+      hooks: {
+        beforeCreate: (orderitem) => {
+          // If you had fields that needed to be lowercased, you would do it here
+        },
+        beforeSave: (orderitem) => {
+          // If you had fields that needed to be lowercased, you would do it here
+        }
+      }
     }
-  },{
-    timestamps: true, // Adds createdAt and updatedAt fields
-  }
-);
+  );
 
-orderitem.associate = function (models) {
-  orderitem.belongsTo(models.order, {
+  // Uncomment and use this for associations if needed
+  // orderitem.associate = function(models) {
+  //   orderitem.belongsTo(models.order, {
+  //     as: "orderitemorder",
+  //     foreignKey: "orderId",
+  //   });
+  //   orderitem.belongsTo(models.product, {
+  //     as: "orderitemProduct",
+  //     foreignKey: "productId",
+  //   });
+  // }
 
-    as: "orderitemorder",
-    
-    foreignKey: "orderId",
-
-  });
-
-  orderitem.belongsTo(models.product, {
-
-    as: "orderitemProduct",
-    
-    foreignKey: "productId",
-
-  });
-
+  return orderitem;
 }
-
-
-return orderitem;
-}
-

@@ -3,7 +3,7 @@ const jwt = require('jsonwebtoken');
 const { saltRound, accessTokenSecret, accessTokenExpiry, refreshTokenSecret, refreshTokenExpiry } = require('../config/utils');
 
 module.exports = function (sequelize, Sequelize) {
-  const User = sequelize.define(
+  const user = sequelize.define(
     'user',
     {
       id: {
@@ -21,7 +21,8 @@ module.exports = function (sequelize, Sequelize) {
       },
       email: {
         type: Sequelize.STRING,
-        allowNull: false
+        allowNull: false,
+        unique: true // Ensure email is unique
       },
       password: {
         type: Sequelize.STRING,
@@ -29,7 +30,7 @@ module.exports = function (sequelize, Sequelize) {
       },
       role: {
         type: Sequelize.STRING,
-        allowNull: false
+        allowNull: true
       },
       refreshToken: {
         type: Sequelize.STRING
@@ -50,24 +51,28 @@ module.exports = function (sequelize, Sequelize) {
             const saltRounds = await bcrypt.genSalt(saltRound);
             user.password = await bcrypt.hash(user.password, saltRounds);
           }
+          // Normalize fields to lowercase
+          user.email = user.email.toLowerCase();
+          user.firstName = user.firstName.toLowerCase();
+          user.lastName = user.lastName.toLowerCase();
         }
       }
     }
   );
 
-  User.associate = function (models) {
-    User.hasMany(models.order, {
-      as: "userOrder",
-      foreignKey: "userId",
-    });
-  };
+  // user.associate = function (models) {
+  //   user.hasMany(models.order, {
+  //     as: "userOrder",
+  //     foreignKey: "userId",
+  //   });
+  // };
 
   // Add instance methods to the model
-  User.prototype.isPasswordCorrect = async function (password) {
+  user.prototype.isPasswordCorrect = async function (password) {
     return await bcrypt.compare(password, this.password);
   };
 
-  User.prototype.generateAccessToken = function () {
+  user.prototype.generateAccessToken = function () {
     return jwt.sign(
       {
         id: this.id,
@@ -81,7 +86,7 @@ module.exports = function (sequelize, Sequelize) {
     );
   };
 
-  User.prototype.generateRefreshToken = function () {
+  user.prototype.generateRefreshToken = function () {
     return jwt.sign(
       {
         id: this.id,
@@ -93,5 +98,5 @@ module.exports = function (sequelize, Sequelize) {
     );
   };
 
-  return User;
+  return user;
 }

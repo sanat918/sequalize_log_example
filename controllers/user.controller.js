@@ -117,6 +117,10 @@ exports.Login=async(req,res)=>{
 
 }
 
+exports.addToCart=(req,res)=>{
+    
+}
+
 exports.createOrder=(req,res)=>{
 
 }

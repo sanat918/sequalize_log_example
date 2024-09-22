@@ -1,8 +1,11 @@
 const { sequelize } = require('../connectionToDB');
-let {user,category}=require('../models/index')
+let {user,category,product}=require('../models/index')
 let{asyncHandler}=require('../utils/asyncHandler')
 let {ApiResponse}=require('../utils/ApiResponse')
 let {ApiError}=require('../utils/ApiError')
+let jwt=require("jsonwebtoken")
+let {accessTokenSecret} =require('../config/utils.js')
+
 
 const generateAccessAndRefereshTokens = async(userId) =>{
     try {
@@ -38,7 +41,7 @@ exports.Signup=asyncHandler(async (req,res)=>{
           // Check if the user already exists
     const existingUser = await user.findOne({ where: { email } });
     if (existingUser) {
-        return res.status(400).json({ message: "Email is already registered" });
+        return res.status(409).json({ message: "Email is already registered" });
     }
          let role="admin"
         let data=await user.create({firstName,lastName,email,password,role})
@@ -62,16 +65,10 @@ exports.Login=asyncHandler(async (req, res) =>{
         throw new ApiError(400, "username or email is required")
     }
     
-    // Here is an alternative of above code based on logic discussed in video:
-    // if (!(username || email)) {
-    //     throw new ApiError(400, "username or email is required")
-        
-    // }
-     let role='admin'
+  
     const User = await user.findOne({
         where: {
-         email:email,
-         role:role
+         email:email
         }})
 
     if (!User) {
@@ -114,11 +111,50 @@ exports.Login=asyncHandler(async (req, res) =>{
 
 })
 
-exports.addProduct=(req,res)=>{
-
+exports.addProduct=async (req,res)=>{
+    try {
+      const token = req.cookies?.accessToken || req.header("Authorization")?.replace("Bearer ", "")
+      const decodedToken = jwt.verify(token,accessTokenSecret)
+        // Extract product details from request body
+        const { name, description, price, stock, categoryId } = req.body;
+    
+        // Validate input
+        if (!name || !description || !price || !stock || !categoryId  ) {
+          return res.status(400).json({ message: 'All fields are required' });
+        }
+    
+        // Check if category exists
+        const categoryStatus = await category.findByPk(categoryId);
+        if (!categoryStatus) {
+          return res.status(404).json({ message: 'Category not found, Please provide correct value' });
+        }
+        //check if same product is not exist with same userId
+        const productStatus = await product.findOne({where:{name:name,userId:decodedToken?.id }  });
+        if (productStatus) {
+          return res.status(404).json({ message: 'Sorry this product is already exist in your account' });
+        }
+    
+        // Create new product
+        const newProduct = await product.create({
+          name,
+          description,
+          price,
+          stock,
+          categoryId,
+          userId:decodedToken?.id
+        });
+    
+        // Send success response
+        return res.status(201).json({ message: 'Product created successfully', product: newProduct });
+    
+      } catch (error) {
+        console.error('Error adding product:', error);
+        return res.status(500).json({ message: 'Internal server error' });
+      }
 }
 
 exports.addCategory=async(req,res)=>{
+  
     const transaction = await sequelize.transaction(); // Start a transaction
    try {
      let {name}=req.body

@@ -9,7 +9,7 @@ router.post('/signup',Signup)
 router.post('/login',Login)
 
 router.post('/addCategory',verifyJWTAdmin,addCategory)
-// router.post('/addProduct',addProduct)
+router.post('/addProduct',verifyJWTAdmin,addProduct)
 
 
 
