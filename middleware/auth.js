@@ -44,7 +44,7 @@ exports.verifyJWTAdmin = asyncHandler(async(req, _, next) => {
         const decodedToken = jwt.verify(token,accessTokenSecret)
     
         const User =  await user.findOne({
-            where: { id:decodedToken?.id, role: 'admin' },
+            where: { id:decodedToken?.id,  role: decodedToken?.role },
             attributes: { exclude: ['password', 'refreshToken'] }
           });
 

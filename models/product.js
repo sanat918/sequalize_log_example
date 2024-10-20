@@ -31,6 +31,14 @@ module.exports = function(sequelize, Sequelize) {
         type: DataTypes.INTEGER,
         allowNull: false,
       },
+      stripeProductId: {
+        type: DataTypes.STRING,
+        allowNull: false,
+      },
+      stripePriceId: {
+        type: DataTypes.STRING,
+        allowNull: false,
+      },
       userId: {
         type: DataTypes.INTEGER,
         allowNull: false,

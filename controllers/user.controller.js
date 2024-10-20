@@ -1,5 +1,7 @@
 const { Op } = require('sequelize');
 let {user}=require('../models/index')
+let {accessTokenSecret,StripeSecretKey} =require('../config/utils.js')
+let jwt=require("jsonwebtoken")
 
 const generateAccessAndRefereshTokens = async(userId) =>{
     try {
@@ -61,12 +63,13 @@ exports.Login=async(req,res)=>{
        if(username){
           email=username
        }
-        let role='user'
+       const token = req.cookies?.accessToken || req.header("Authorization")?.replace("Bearer ", "");
+       const decodedToken = jwt.verify(token, accessTokenSecret);
       // Check if the user already exists
       const existingUser = await user.findOne({
         where: {
          email:email,
-         role:role
+         role: decodedToken?.role
         }
       });
       if (existingUser) {

@@ -2,10 +2,10 @@ const { sequelize } = require('../connectionToDB');
 let {user,category,product}=require('../models/index')
 let{asyncHandler}=require('../utils/asyncHandler')
 let {ApiResponse}=require('../utils/ApiResponse')
-let {ApiError}=require('../utils/ApiError')
+let {ApiError}=require('../utils/ApiError.js')
 let jwt=require("jsonwebtoken")
-let {accessTokenSecret} =require('../config/utils.js')
-
+let {accessTokenSecret,StripeSecretKey} =require('../config/utils.js')
+const stripe = require('stripe')(StripeSecretKey);
 
 const generateAccessAndRefereshTokens = async(userId) =>{
     try {
@@ -133,6 +133,21 @@ exports.addProduct=async (req,res)=>{
         if (productStatus) {
           return res.status(404).json({ message: 'Sorry this product is already exist in your account' });
         }
+
+        // Create new product in Stripe
+        const stripeProduct = await stripe.products.create({
+          name,
+          description,
+          metadata: { userId: decodedToken?.id }
+      });
+
+      // Create a price for the product in Stripe
+      const stripePrice = await stripe.prices.create({
+          unit_amount: price * 100, // Stripe expects price in cents
+          currency: 'usd', // Adjust currency as necessary
+          product: stripeProduct.id,
+      });
+
     
         // Create new product
         const newProduct = await product.create({
@@ -141,7 +156,9 @@ exports.addProduct=async (req,res)=>{
           price,
           stock,
           categoryId,
-          userId:decodedToken?.id
+          userId:decodedToken?.id,
+          stripestripeProductId:stripeProduct.id,
+          stripePriceId:stripePrice.id
         });
     
         // Send success response
@@ -152,6 +169,84 @@ exports.addProduct=async (req,res)=>{
         return res.status(500).json({ message: 'Internal server error' });
       }
 }
+const { sequelize } = require('../models'); // Adjust the import based on your project structure
+
+exports.addMultipleProducts = async (req, res) => {
+  const t = await sequelize.transaction(); // Start a transaction
+  try {
+
+    // Extract product details from request body
+    const products = req.body.products; // Expecting an array of product objects
+
+    // Validate input
+    if (!Array.isArray(products) || products.length === 0) {
+      return res.status(400).json({ message: 'Products array is required' });
+    }
+
+    const newProducts = [];
+
+    for (const productData of products) {
+      const { name, description, price, stock, categoryId } = productData;
+
+      // Validate individual product input
+      if (!name || !description || !price || !stock || !categoryId) {
+        return res.status(400).json({ message: 'All fields are required for each product' });
+      }
+
+      // Check if category exists
+      const categoryStatus = await category.findByPk(categoryId);
+      if (!categoryStatus) {
+        return res.status(404).json({ message: 'Category not found, Please provide correct value' });
+      }
+
+      // Check if the same product already exists for the user
+      const productStatus = await product.findOne({ where: { name, userId: decodedToken?.id } });
+      if (productStatus) {
+        return res.status(404).json({ message: `Product '${name}' already exists in your account` });
+      }
+
+      // Create new product in Stripe
+      const stripeProduct = await stripe.products.create({
+        name,
+        description,
+        metadata: { userId: decodedToken?.id }
+      }, { transaction: t }); // Pass transaction
+
+      // Create a price for the product in Stripe
+      const stripePrice = await stripe.prices.create({
+        unit_amount: price * 100, // Stripe expects price in cents
+        currency: 'usd', // Adjust currency as necessary
+        product: stripeProduct.id,
+      }, { transaction: t }); // Pass transaction
+
+      // Create new product in the database
+      const newProduct = await product.create({
+        name,
+        description,
+        price,
+        stock,
+        categoryId,
+        userId: decodedToken?.id,
+        stripeProductId: stripeProduct.id,
+        stripePriceId: stripePrice.id
+      }, { transaction: t }); // Pass transaction
+
+      newProducts.push(newProduct);
+    }
+
+    // Commit transaction if all products are created successfully
+    await t.commit();
+    
+    // Send success response
+    return res.status(201).json({ message: 'Products created successfully', products: newProducts });
+
+  } catch (error) {
+    await t.rollback(); // Rollback transaction on error
+    console.error('Error adding products:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
 
 exports.addCategory=async(req,res)=>{
   
@@ -182,3 +277,37 @@ exports.addCategory=async(req,res)=>{
    }
 
 }
+
+exports.deleteProduct = async (req, res) => {
+  try {
+    const token = req.cookies?.accessToken || req.header("Authorization")?.replace("Bearer ", "");
+    const decodedToken = jwt.verify(token, accessTokenSecret);
+    
+    // Extract product details from request body
+    const { id } = req.body;
+
+    // Validate input
+    if (!id) {
+      return res.status(400).json({ message: 'All fields are required' });
+    }
+
+    // Check if the product exists for the user
+    const productStatus = await product.findOne({ where: { id: id, userId: decodedToken?.id } });
+    if (!productStatus) {
+      return res.status(404).json({ message: 'Sorry, this product does not exist in your account' });
+    }
+
+    // Delete the product from your database
+    const deleteProduct = await product.deleteOne({ where: { id: id } });
+
+    // Delete the product from Stripe
+    await stripe.products.del(productStatus.stripeProductId); // Assume you have stored the Stripe product ID in your database
+
+    // Send success response
+    return res.status(200).json({ message: 'Product deleted successfully', product: deleteProduct });
+
+  } catch (error) {
+    console.error('Error deleting product:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+};
